@@ -1,0 +1,14 @@
+import axios from 'axios';
+const base = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
+export const getEnvironments = () => axios.get(`${base}/environments`).then(r=>r.data);
+export const getHistory = (env) => axios.get(`${base}/migrations/history`, {params:{env}}).then(r=>r.data);
+export const getPending = (env) => axios.get(`${base}/migrations/pending`, {params:{env}}).then(r=>r.data);
+export const getDbStatus = () => axios.get(`${base}/database/status`).then(r=>r.data);
+export const executeMigration = (payload) => axios.post(`${base}/migrations/execute`, payload).then(r=>r.data);
+export const rollbackMigration = (payload) => axios.post(`${base}/migrations/rollback`, payload).then(r=>r.data);
+export const rollbackOne = (payload) => axios.post(`${base}/migrations/rollback-one`, payload).then(r=>r.data);
+export const getDiff = (src, tgt) => axios.get(`${base}/migrations/diff`, {params:{source:src, target:tgt}}).then(r=>r.data);
+export const getRollbackHistory = (env) => axios.get(`${base}/migrations/rollback-history`, {params: env ? {env} : {}}).then(r=>r.data);
+export const getRecentDeployments = (limit) => axios.get(`${base}/migrations/recent-deployments`, {params:{limit}}).then(r=>r.data);
+export const getVersionMap = () => axios.get(`${base}/migrations/version-map`).then(r=>r.data);
+export const getMetrics = () => axios.get(`${base}/migrations/metrics`).then(r=>r.data);

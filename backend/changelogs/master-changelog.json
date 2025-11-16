@@ -1,0 +1,34 @@
+{
+  "changesets": [
+    {
+      "id": "001-create-users",
+      "author": "lalu",
+      "filename": "changelogs/001-create-users.xml",
+      "description": "create users table"
+    },
+    {
+      "id": "002-add-email",
+      "author": "lalu",
+      "filename": "changelogs/002-add-email.xml",
+      "description": "add email column"
+    },
+    {
+      "id": "003-add-phone",
+      "author": "lalu",
+      "filename": "changelogs/003-add-phone.xml",
+      "description": "add phone column"
+    },
+    {
+      "id": "004-add-address",
+      "author": "lalu",
+      "filename": "changelogs/004-add-address.xml",
+      "description": "add address column"
+    },
+    {
+      "id": "005-create-rollback-history",
+      "author": "lalu",
+      "filename": "changelogs/005-create-rollback-history.xml",
+      "description": "create rollback_history table"
+    }
+  ]
+}
