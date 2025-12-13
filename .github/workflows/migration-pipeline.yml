@@ -2,8 +2,11 @@ name: Liquibase Migration Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ test-validation ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -14,25 +17,54 @@ jobs:
       - name: ✅ Checkout Code
         uses: actions/checkout@v4
 
+      - name: ✅ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
       - name: ✅ Install Liquibase & MySQL Client
         run: |
+          set -e
           sudo apt-get update
           sudo apt-get install -y mysql-client unzip
-          curl -L https://github.com/liquibase/liquibase/releases/download/v4.33.0/liquibase-4.33.0.zip -o liquibase.zip
-          unzip liquibase.zip
-          sudo ln -s $(pwd)/liquibase/liquibase /usr/local/bin/liquibase
+          
+          # Download and install Liquibase
+          curl -sLo liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.33.0/liquibase-4.33.0.zip
+          unzip -q liquibase.zip -d $HOME/liquibase
+          
+          # Download MySQL connector JAR (required for MySQL connections)
+          curl -sLo $HOME/liquibase/lib/mysql-connector-j.jar https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar
+          
+          # Add Liquibase to PATH
+          echo "$HOME/liquibase" >> $GITHUB_PATH
 
       - name: ✅ Validate Changesets
-        run: liquibase --changeLogFile=changelogs/master-changelog.xml validate
+        run: |
+          liquibase \
+            --changeLogFile=backend/changelogs/master-changelog.xml \
+            --searchPath=backend/changelogs \
+            validate
 
       - name: ✅ Show Pending Changes (DEV)
-        run: liquibase --url="${{ secrets.DEV_DB_URL }}" --changeLogFile=changelogs/master-changelog.xml status
+        run: |
+          liquibase \
+            --url="${{ secrets.DEV_DB_URL }}" \
+            --changeLogFile=backend/changelogs/master-changelog.xml \
+            --searchPath=backend/changelogs \
+            status
 
       - name: ✅ Deploy to DEV
-        run: liquibase --url="${{ secrets.DEV_DB_URL }}" --changeLogFile=changelogs/master-changelog.xml update
+        run: |
+          liquibase \
+            --url="${{ secrets.DEV_DB_URL }}" \
+            --changeLogFile=backend/changelogs/master-changelog.xml \
+            --searchPath=backend/changelogs \
+            update
 
       - name: ✅ Smoke Test
-        run: mysql -u ${{ secrets.DB_USER }} -p${{ secrets.DB_PASS }} -h ${{ secrets.DB_HOST }} -e "SELECT 1"
+        run: mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USER }} -p${{ secrets.DB_PASS }} -e "SELECT 1"
+
 
   promote-to-qa:
     needs: deploy
@@ -40,11 +72,33 @@ jobs:
     environment: qa
 
     steps:
-      - name: ✅ Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: ✅ Deploy to QA
-        run: liquibase --url="${{ secrets.QA_DB_URL }}" --changeLogFile=changelogs/master-changelog.xml update
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Liquibase
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          curl -sLo liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.33.0/liquibase-4.33.0.zip
+          unzip -q liquibase.zip -d $HOME/liquibase
+          curl -sLo $HOME/liquibase/lib/mysql-connector-j.jar https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar
+          echo "$HOME/liquibase" >> $GITHUB_PATH
+
+      - name: Deploy to QA
+        run: |
+          liquibase \
+            --url="${{ secrets.QA_DB_URL }}" \
+            --changeLogFile=backend/changelogs/master-changelog.xml \
+            --searchPath=backend/changelogs \
+            update
+
 
   promote-to-prod:
     needs: promote-to-qa
@@ -52,8 +106,29 @@ jobs:
     environment: prod
 
     steps:
-      - name: ✅ Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: ✅ Deploy to PROD
-        run: liquibase --url="${{ secrets.PROD_DB_URL }}" --changeLogFile=changelogs/master-changelog.xml update
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Liquibase
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          curl -sLo liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.33.0/liquibase-4.33.0.zip
+          unzip -q liquibase.zip -d $HOME/liquibase
+          curl -sLo $HOME/liquibase/lib/mysql-connector-j.jar https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar
+          echo "$HOME/liquibase" >> $GITHUB_PATH
+
+      - name: Deploy to PROD
+        run: |
+          liquibase \
+            --url="${{ secrets.PROD_DB_URL }}" \
+            --changeLogFile=backend/changelogs/master-changelog.xml \
+            --searchPath=backend/changelogs \
+            update
