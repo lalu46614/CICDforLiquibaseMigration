@@ -13,6 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
 
+    # Add MySQL service container for testing (if DEV_DB_URL secret is not set)
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: admin
+          MYSQL_DATABASE: testdb_dev
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     steps:
       - name: ✅ Checkout Code
         uses: actions/checkout@v4
@@ -40,23 +55,33 @@ jobs:
           echo "$HOME/liquibase" >> $GITHUB_PATH
 
       - name: ✅ Show Pending Changes (DEV)
+        env:
+          # Use secret if available, otherwise use service container
+          DEV_DB_URL: ${{ secrets.DEV_DB_URL != '' && secrets.DEV_DB_URL || 'jdbc:mysql://localhost:3306/testdb_dev?user=root&password=admin' }}
         run: |
           liquibase \
-            --url="${{ secrets.DEV_DB_URL }}" \
+            --url="$DEV_DB_URL" \
             --changeLogFile=backend/changelogs/master-changelog.xml \
             --searchPath=backend/changelogs \
             status
 
       - name: ✅ Deploy to DEV
+        env:
+          # Use secret if available, otherwise use service container
+          DEV_DB_URL: ${{ secrets.DEV_DB_URL != '' && secrets.DEV_DB_URL || 'jdbc:mysql://localhost:3306/testdb_dev?user=root&password=admin' }}
         run: |
           liquibase \
-            --url="${{ secrets.DEV_DB_URL }}" \
+            --url="$DEV_DB_URL" \
             --changeLogFile=backend/changelogs/master-changelog.xml \
             --searchPath=backend/changelogs \
             update
 
       - name: ✅ Smoke Test
-        run: mysql -h ${{ secrets.DB_HOST }} -u ${{ secrets.DB_USER }} -p${{ secrets.DB_PASS }} -e "SELECT 1"
+        env:
+          DB_HOST: ${{ secrets.DB_HOST != '' && secrets.DB_HOST || 'localhost' }}
+          DB_USER: ${{ secrets.DB_USER != '' && secrets.DB_USER || 'root' }}
+          DB_PASS: ${{ secrets.DB_PASS != '' && secrets.DB_PASS || 'admin' }}
+        run: mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -e "SELECT 1"
 
 
   promote-to-qa:
