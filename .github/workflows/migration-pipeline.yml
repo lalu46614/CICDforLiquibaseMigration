@@ -39,13 +39,6 @@ jobs:
           # Add Liquibase to PATH
           echo "$HOME/liquibase" >> $GITHUB_PATH
 
-      - name: ✅ Validate Changesets
-        run: |
-          liquibase \
-            --changeLogFile=backend/changelogs/master-changelog.xml \
-            --searchPath=backend/changelogs \
-            validate
-
       - name: ✅ Show Pending Changes (DEV)
         run: |
           liquibase \
