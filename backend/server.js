@@ -10,6 +10,7 @@ app.use(bodyParser.json());
 
 // endpoints
 app.get('/api/environments', migrations.getEnvironments);
+app.get('/api/approvers', migrations.getApprovers);
 app.get('/api/migrations/history', migrations.getMigrationHistory);
 app.get('/api/migrations/pending', migrations.getPendingMigrations);
 app.get('/api/database/status', migrations.getDbStatus);

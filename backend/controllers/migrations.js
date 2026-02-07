@@ -160,6 +160,23 @@ exports.getDbStatus = async (req, res) => {
 };
 
 // ----------------------
+// Get Approvers (QA/PROD)
+// ----------------------
+exports.getApprovers = async (req, res) => {
+  try {
+    const qaRaw = process.env.QA_APPROVERS || '';
+    const prodRaw = process.env.PROD_APPROVERS || '';
+
+    const parse = (s) => s.split(',').map(x => x.trim()).filter(x => x.length > 0);
+
+    res.json({ qa: parse(qaRaw), prod: parse(prodRaw) });
+  } catch (err) {
+    console.error('Error reading approvers:', err);
+    res.status(500).json({ error: 'could not read approvers' });
+  }
+};
+
+// ----------------------
 // Execute Migration
 // ----------------------
 // Execute migration using Liquibase CLI with robust path handling and auto-tagging

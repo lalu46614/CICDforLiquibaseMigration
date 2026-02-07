@@ -12,3 +12,4 @@ export const getRollbackHistory = (env) => axios.get(`${base}/migrations/rollbac
 export const getRecentDeployments = (limit) => axios.get(`${base}/migrations/recent-deployments`, {params:{limit}}).then(r=>r.data);
 export const getVersionMap = () => axios.get(`${base}/migrations/version-map`).then(r=>r.data);
 export const getMetrics = () => axios.get(`${base}/migrations/metrics`).then(r=>r.data);
+export const getApprovers = () => axios.get(`${base.replace(/\/api$/,'')}/approvers`).then(r=>r.data);

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import { getEnvironments, getDbStatus } from '../api';
+import { getEnvironments, getDbStatus, getApprovers } from '../api';
 import EnvironmentCard from './EnvironmentCard';
 import PendingMigrations from './PendingMigrations';
 import MigrationsTimeline from './MigrationsTimeline';
@@ -14,6 +14,7 @@ export default function Dashboard(){
   const [selectedEnv, setSelectedEnv] = useState('dev');
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
+  const [approvers, setApprovers] = useState({ qa: [], prod: [] });
 
   async function load(){
     try{
@@ -21,6 +22,12 @@ export default function Dashboard(){
       setEnvs(e);
       const s = await getDbStatus();
       setStatus(s);
+      try {
+        const a = await getApprovers();
+        setApprovers(a || { qa: [], prod: [] });
+      } catch(err) {
+        // ignore if endpoint not available
+      }
     }catch(err){
       console.error(err);
     }
@@ -48,6 +55,16 @@ export default function Dashboard(){
 
   return (
     <div>
+      {/* Approvers banner */}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:13, color:'#333'}}>
+          Promotions to QA/PROD are restricted to authorized users.
+        </div>
+        <div style={{fontSize:12, color:'#666', marginTop:6}}>
+          <strong>QA:</strong> {approvers.qa.length ? approvers.qa.join(', ') : 'Not configured'}
+          {'  '}<strong>PROD:</strong> {approvers.prod.length ? approvers.prod.join(', ') : 'Not configured'}
+        </div>
+      </div>
       <div className="grid" style={{marginBottom:20}}>
         {Object.keys(envs).length === 0 ? (
           <div style={{padding: 20}}>Loading environments...</div>

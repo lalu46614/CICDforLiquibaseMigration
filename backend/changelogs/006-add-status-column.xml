@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+  <changeSet id="006-add-status-column" author="dev-team">
+    <description>Add status column to users table for tracking user state</description>
+    
+    <addColumn tableName="users">
+      <column name="status" type="VARCHAR(20)" defaultValue="active">
+        <constraints nullable="false"/>
+      </column>
+    </addColumn>
+
+    <addColumn tableName="users">
+      <column name="last_login" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="true"/>
+      </column>
+    </addColumn>
+
+    <rollback>
+      <dropColumn tableName="users" columnName="status"/>
+      <dropColumn tableName="users" columnName="last_login"/>
+    </rollback>
+  </changeSet>
+
+</databaseChangeLog>

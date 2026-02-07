@@ -124,6 +124,23 @@ jobs:
 
 
     # Deploy QA
+    - name: Check QA approver
+      env:
+        ALLOWED_QA_APPROVERS: ${{ secrets.QA_APPROVERS }}
+      run: |
+        if [ -z "${ALLOWED_QA_APPROVERS}" ]; then
+          echo "No QA approvers configured (set secret QA_APPROVERS)"; exit 1
+        fi
+        IFS=',' read -ra USERS <<< "${ALLOWED_QA_APPROVERS}"
+        authorized=false
+        for user in "${USERS[@]}"; do
+          if [ "${user}" = "${GITHUB_ACTOR}" ]; then authorized=true; break; fi
+        done
+        if [ "${authorized}" = "false" ]; then
+          echo "User ${GITHUB_ACTOR} is not authorized to promote to QA"; exit 1
+        fi
+        echo "User ${GITHUB_ACTOR} authorized to promote to QA"
+
     - name: Deploy QA
       run: |
         liquibase \
@@ -173,6 +190,23 @@ jobs:
 
 
     # Deploy PROD
+    - name: Check PROD approver
+      env:
+        ALLOWED_PROD_APPROVERS: ${{ secrets.PROD_APPROVERS }}
+      run: |
+        if [ -z "${ALLOWED_PROD_APPROVERS}" ]; then
+          echo "No PROD approvers configured (set secret PROD_APPROVERS)"; exit 1
+        fi
+        IFS=',' read -ra USERS <<< "${ALLOWED_PROD_APPROVERS}"
+        authorized=false
+        for user in "${USERS[@]}"; do
+          if [ "${user}" = "${GITHUB_ACTOR}" ]; then authorized=true; break; fi
+        done
+        if [ "${authorized}" = "false" ]; then
+          echo "User ${GITHUB_ACTOR} is not authorized to promote to PROD"; exit 1
+        fi
+        echo "User ${GITHUB_ACTOR} authorized to promote to PROD"
+
     - name: Deploy PROD
       run: |
         liquibase \

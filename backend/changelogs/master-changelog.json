@@ -29,8 +29,19 @@
       "author": "lalu",
       "filename": "changelogs/005-create-rollback-history.xml",
       "description": "create rollback_history table"
-    }
-    ,
+    },
+    {
+      "id": "006-add-status-column",
+      "author": "dev-team",
+      "filename": "changelogs/006-add-status-column.xml",
+      "description": "add status and last_login columns to users table"
+    },
+    {
+      "id": "007-create-audit-log",
+      "author": "dev-team",
+      "filename": "changelogs/007-create-audit-log.xml",
+      "description": "create audit log table for tracking changes"
+    },
     {
       "id": "008-insert-seed-data",
       "author": "lalu",
