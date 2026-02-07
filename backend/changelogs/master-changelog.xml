@@ -14,8 +14,8 @@
     <include file="003-add-phone.xml"/>
     <include file="004-add-address.xml"/>
     <include file="005-create-rollback-history.xml"/>
-    <!-- 006-add-name.xml - SKIP: name column already created in 001 -->
-    <include file="007-test-release.xml"/>
+    <include file="008-insert-seed-data.xml"/>
+
 
 </databaseChangeLog>
 

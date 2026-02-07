@@ -30,5 +30,12 @@
       "filename": "changelogs/005-create-rollback-history.xml",
       "description": "create rollback_history table"
     }
+    ,
+    {
+      "id": "008-insert-seed-data",
+      "author": "lalu",
+      "filename": "changelogs/008-insert-seed-data.xml",
+      "description": "seed a test user for monitoring"
+    }
   ]
 }

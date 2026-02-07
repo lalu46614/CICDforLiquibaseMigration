@@ -4,6 +4,18 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 
+// DDL for rollback_history - used as a safe-create if the table is missing
+const ROLLBACK_HISTORY_DDL = `CREATE TABLE IF NOT EXISTS rollback_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  env VARCHAR(20) NOT NULL,
+  changeset_id VARCHAR(200) NOT NULL,
+  author VARCHAR(200) NOT NULL,
+  filename VARCHAR(300) NOT NULL,
+  rollback_tag VARCHAR(200) NULL,
+  rolled_back_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  status VARCHAR(20) NOT NULL
+)`;
+
 // All DB environments
 const envPools = { dev: DEV, qa: QA, prod: PROD };
 
@@ -371,6 +383,12 @@ exports.rollbackOne = async (req, res) => {
 
     // Step 3: Record in rollback_history
     try {
+      // Ensure rollback_history exists (some environments may not have this changeset applied)
+      try {
+        await queryDatabase(pool, ROLLBACK_HISTORY_DDL);
+      } catch (createErr) {
+        console.warn(`[${new Date().toISOString()}] Could not ensure rollback_history table:`, createErr.message);
+      }
       await queryDatabase(pool, 
         `INSERT INTO rollback_history (env, changeset_id, author, filename, status) 
          VALUES (?, ?, ?, ?, ?)`,
@@ -483,13 +501,20 @@ exports.rollbackMigration = async (req, res) => {
       try {
         const pool = envPools[env];
         if (pool) {
+          // Ensure table exists, then insert using rollback_tag column
+          try {
+            await queryDatabase(pool, ROLLBACK_HISTORY_DDL);
+          } catch (createErr) {
+            console.warn(`[${new Date().toISOString()}] Could not ensure rollback_history table:`, createErr.message);
+          }
+
           await queryDatabase(pool, 
-            `INSERT INTO rollback_history (env, tag) VALUES (?, ?)`,
+            `INSERT INTO rollback_history (env, rollback_tag) VALUES (?, ?)`,
             [env, tag]
           );
         }
       } catch (dbErr) {
-        // Log but don't fail the rollback if table doesn't exist yet
+        // Log but don't fail the rollback if table doesn't exist yet or insert fails
         console.warn(`[${new Date().toISOString()}] Could not record rollback in history:`, dbErr.message);
       }
       

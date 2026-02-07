@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="008-insert-seed-data" author="lalu">
+        <comment>Seed a test user into app_users for monitoring/demo</comment>
+        <insert tableName="app_users">
+            <column name="name" value="seed_user"/>
+            <column name="email" value="seed@example.com"/>
+            <column name="phone" value="000-000-0000"/>
+            <column name="address" value="Seed Address"/>
+        </insert>
+        <rollback>
+            <delete tableName="app_users">
+                <where>name='seed_user' AND email='seed@example.com'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
