@@ -9,6 +9,9 @@
         <addColumn tableName="app_users">
             <column name="email" type="VARCHAR(255)"/>
         </addColumn>
+        <rollback>
+            <dropColumn tableName="app_users" columnName="email"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>

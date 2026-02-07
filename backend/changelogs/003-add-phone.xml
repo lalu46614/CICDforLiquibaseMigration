@@ -8,6 +8,9 @@
         <addColumn tableName="app_users">
             <column name="phone" type="varchar(20)"/>
         </addColumn>
+        <rollback>
+            <dropColumn tableName="app_users" columnName="phone"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>

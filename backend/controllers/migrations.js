@@ -37,13 +37,22 @@ exports.getEnvironments = async (req, res) => {
   try {
     const results = {};
     for (const [name, pool] of Object.entries(envPools)) {
-      const rows = await queryDatabase(
-        pool,
-        `SELECT id, author, filename, dateexecuted, orderexecuted 
-         FROM DATABASECHANGELOG 
-         ORDER BY dateexecuted DESC, orderexecuted DESC LIMIT 1`
-      );
-      results[name] = { latest: rows[0] || null };
+      try {
+        const rows = await queryDatabase(
+          pool,
+          `SELECT id, author, filename, dateexecuted, orderexecuted 
+           FROM DATABASECHANGELOG 
+           ORDER BY dateexecuted DESC, orderexecuted DESC LIMIT 1`
+        );
+        results[name] = { latest: rows[0] || null, status: 'initialized' };
+      } catch (err) {
+        // Handle case where DATABASECHANGELOG table doesn't exist (Liquibase not initialized)
+        if (err.code === 'ER_NO_SUCH_TABLE') {
+          results[name] = { latest: null, status: 'not_initialized', message: 'Liquibase has not been initialized yet' };
+        } else {
+          throw err;
+        }
+      }
     }
     res.json(results);
   } catch (err) {
@@ -69,6 +78,9 @@ exports.getMigrationHistory = async (req, res) => {
     );
     res.json({ env, history: rows });
   } catch (err) {
+    if (err.code === 'ER_NO_SUCH_TABLE') {
+      return res.json({ env, history: [], status: 'not_initialized', message: 'Liquibase has not been initialized yet' });
+    }
     console.error(err);
     res.status(500).json({ error: err.message });
   }
@@ -86,24 +98,33 @@ exports.getPendingMigrations = async (req, res) => {
     const manifestPath = path.resolve(__dirname, '..', 'changelogs', 'master-changelog.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
-    const dbRows = await queryDatabase(pool, `SELECT id, author, filename FROM DATABASECHANGELOG`);
-    
-    // Use basename for filename comparison since DATABASECHANGELOG stores absolute paths
-    const appliedSet = new Set(
-      dbRows.map(r => {
-        const basename = path.basename(r.filename);
-        return `${r.id}||${r.author}||${basename}`;
-      })
-    );
+    try {
+      const dbRows = await queryDatabase(pool, `SELECT id, author, filename FROM DATABASECHANGELOG`);
+      
+      // Use basename for filename comparison since DATABASECHANGELOG stores absolute paths
+      const appliedSet = new Set(
+        dbRows.map(r => {
+          const basename = path.basename(r.filename);
+          return `${r.id}||${r.author}||${basename}`;
+        })
+      );
 
-    // Compare using basename of manifest filename
-    const pending = manifest.changesets.filter(cs => {
-      const manifestBasename = path.basename(cs.filename);
-      const key = `${cs.id}||${cs.author}||${manifestBasename}`;
-      return !appliedSet.has(key);
-    });
+      // Compare using basename of manifest filename
+      const pending = manifest.changesets.filter(cs => {
+        const manifestBasename = path.basename(cs.filename);
+        const key = `${cs.id}||${cs.author}||${manifestBasename}`;
+        return !appliedSet.has(key);
+      });
 
-    res.json({ env, pending });
+      res.json({ env, pending });
+    } catch (err) {
+      if (err.code === 'ER_NO_SUCH_TABLE') {
+        // If table doesn't exist, all changesets are pending
+        res.json({ env, pending: manifest.changesets, status: 'not_initialized', message: 'Liquibase has not been initialized yet' });
+      } else {
+        throw err;
+      }
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

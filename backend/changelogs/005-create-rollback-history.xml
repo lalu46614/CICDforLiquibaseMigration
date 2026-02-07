@@ -32,6 +32,9 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+        <rollback>
+            <dropTable tableName="rollback_history"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>
