@@ -5,7 +5,7 @@
                                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
 
   <changeSet id="006-add-status-column" author="dev-team">
-    <description>Add status column to users table for tracking user state</description>
+    <comment>Add status column to users table for tracking user state</comment>
     
     <addColumn tableName="users">
       <column name="status" type="VARCHAR(20)" defaultValue="active">
