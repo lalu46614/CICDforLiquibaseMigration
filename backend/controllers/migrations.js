@@ -280,7 +280,6 @@ exports.rollbackOne = async (req, res) => {
   const pool = envPools[env.toLowerCase()];
   if (!pool) return res.status(400).json({ error: 'invalid env' });
 
-  const rollbackTag = `${changesetId}-before`;
   const backendDir = path.resolve(__dirname, '..');
   const changelogsDir = path.resolve(__dirname, '..', 'changelogs').replace(/\\/g, '/');
   const liquibaseQuoted = `"${liquibasePath}"`;
@@ -299,12 +298,39 @@ exports.rollbackOne = async (req, res) => {
     
     const changelogFileName = path.basename(changelogPath);
 
-    // Step 1: Execute rollback
-    const rollbackCmd = `${liquibaseQuoted} --url="${dbUrl}" --changeLogFile="${changelogFileName}" --searchPath="${changelogsDir}" rollback ${rollbackTag}`;
+    // Step 0: Find the orderexecuted of the changeset to determine rollback count
+    const filenameBasename = path.basename(filename);
+    const changesetRow = await queryDatabase(pool,
+      `SELECT orderexecuted FROM DATABASECHANGELOG 
+       WHERE id = ? AND author = ? AND filename LIKE ? 
+       LIMIT 1`,
+      [changesetId, author, `%${filenameBasename}%`]
+    );
+    
+    if (!changesetRow || changesetRow.length === 0) {
+      return res.status(400).json({ error: `Changeset ${changesetId} not found in DATABASECHANGELOG` });
+    }
+    
+    const changesetOrder = changesetRow[0].orderexecuted;
+    
+    // Get the max order to calculate rollback count
+    const maxOrderRow = await queryDatabase(pool,
+      `SELECT MAX(orderexecuted) as max_order FROM DATABASECHANGELOG`
+    );
+    
+    const maxOrder = maxOrderRow[0].max_order || 0;
+    const rollbackCount = maxOrder - changesetOrder + 1;
+    
+    if (rollbackCount <= 0) {
+      return res.status(400).json({ error: 'Cannot rollback - changeset order invalid' });
+    }
+
+    // Step 1: Execute rollback using rollback-count
+    const rollbackCmd = `${liquibaseQuoted} --url="${dbUrl}" --changeLogFile="${changelogFileName}" --searchPath="${changelogsDir}" rollback-count ${rollbackCount}`;
 
     console.log(`[${new Date().toISOString()}] Rolling back changeset ${changesetId} on ${env}:`);
     console.log(`  Command: ${rollbackCmd}`);
-    console.log(`  Rollback tag: ${rollbackTag}`);
+    console.log(`  Changeset order: ${changesetOrder}, Max order: ${maxOrder}, Rollback count: ${rollbackCount}`);
 
     let rollbackResult;
     let rollbackStatus = 'SUCCESS';
@@ -328,9 +354,6 @@ exports.rollbackOne = async (req, res) => {
     // Step 2: Delete from DATABASECHANGELOG (only if rollback succeeded)
     if (rollbackStatus === 'SUCCESS') {
       try {
-        // Use basename for filename comparison
-        const filenameBasename = path.basename(filename);
-        
         // Delete the changeset from DATABASECHANGELOG
         // Match by id, author, and filename (using LIKE for basename matching)
         await queryDatabase(pool, 
@@ -348,11 +371,10 @@ exports.rollbackOne = async (req, res) => {
 
     // Step 3: Record in rollback_history
     try {
-      const filenameBasename = path.basename(filename);
       await queryDatabase(pool, 
-        `INSERT INTO rollback_history (env, changeset_id, author, filename, rollback_tag, status) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [env, changesetId, author, filenameBasename, rollbackTag, rollbackStatus]
+        `INSERT INTO rollback_history (env, changeset_id, author, filename, status) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [env, changesetId, author, filenameBasename, rollbackStatus]
       );
       console.log(`[${new Date().toISOString()}] Recorded rollback in rollback_history`);
     } catch (historyErr) {
