@@ -14,9 +14,8 @@
     <include file="003-add-phone.xml"/>
     <include file="004-add-address.xml"/>
     <include file="005-create-rollback-history.xml"/>
-    <include file="006-add-status-column.xml"/>
-    <include file="007-create-audit-log.xml"/>
     <include file="008-insert-seed-data.xml"/>
+    <include file="009-create-settings.xml"/>
 
 
 </databaseChangeLog>

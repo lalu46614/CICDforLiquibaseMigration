@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+  <changeSet id="009-create-settings" author="dev-team">
+    <comment>Create application settings table - independent changeset for testing</comment>
+    
+    <createTable tableName="app_settings">
+      <column name="id" type="INT" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="setting_key" type="VARCHAR(100)">
+        <constraints nullable="false" unique="true"/>
+      </column>
+      <column name="setting_value" type="VARCHAR(500)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="updated_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <createIndex tableName="app_settings" indexName="idx_settings_key">
+      <column name="setting_key"/>
+    </createIndex>
+
+    <insert tableName="app_settings">
+      <column name="setting_key" value="app_version"/>
+      <column name="setting_value" value="1.0.0"/>
+    </insert>
+
+    <rollback>
+      <dropIndex tableName="app_settings" indexName="idx_settings_key"/>
+      <dropTable tableName="app_settings"/>
+    </rollback>
+  </changeSet>
+
+</databaseChangeLog>
