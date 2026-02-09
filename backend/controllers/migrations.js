@@ -418,18 +418,31 @@ exports.rollbackOne = async (req, res) => {
       // Ensure rollback_history exists (some environments may not have this changeset applied)
       try {
         await queryDatabase(pool, ROLLBACK_HISTORY_DDL);
+        console.log(`[${new Date().toISOString()}] Ensured rollback_history table exists`);
       } catch (createErr) {
-        console.warn(`[${new Date().toISOString()}] Could not ensure rollback_history table:`, createErr.message);
+        console.error(`[${new Date().toISOString()}] Error creating/checking rollback_history table:`, createErr.message);
+        throw createErr; // Re-throw to be caught by outer catch
       }
-      await queryDatabase(pool, 
-        `INSERT INTO rollback_history (env, changeset_id, author, filename, status) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [env, changesetId, author, filenameBasename, rollbackStatus]
+      
+      // Generate a meaningful rollback tag for this changeset
+      const rollbackTag = `${changesetId}-rollback-${new Date().getTime()}`;
+      
+      const insertResult = await queryDatabase(pool, 
+        `INSERT INTO rollback_history (env, changeset_id, author, filename, rollback_tag, status) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [env, changesetId, author, filenameBasename, rollbackTag, rollbackStatus]
       );
-      console.log(`[${new Date().toISOString()}] Recorded rollback in rollback_history`);
+      console.log(`[${new Date().toISOString()}] Successfully recorded rollback in rollback_history:`, {
+        env, changesetId, author, filename: filenameBasename, rollback_tag: rollbackTag, status: rollbackStatus
+      });
     } catch (historyErr) {
-      // Log but don't fail - table might not exist yet
-      console.warn(`[${new Date().toISOString()}] Could not record rollback in history:`, historyErr.message);
+      console.error(`[${new Date().toISOString()}] FAILED to record rollback in history:`, {
+        error: historyErr.message,
+        code: historyErr.code,
+        sql: historyErr.sql,
+        env, changesetId, author, filename: filenameBasename, status: rollbackStatus
+      });
+      // Continue - rollback succeeded even if history recording failed
     }
 
     // Step 4: Release DATABASECHANGELOGLOCK if needed (Liquibase usually handles this)
@@ -536,18 +549,26 @@ exports.rollbackMigration = async (req, res) => {
           // Ensure table exists, then insert using rollback_tag column
           try {
             await queryDatabase(pool, ROLLBACK_HISTORY_DDL);
+            console.log(`[${new Date().toISOString()}] Ensured rollback_history table exists for legacy rollback`);
           } catch (createErr) {
-            console.warn(`[${new Date().toISOString()}] Could not ensure rollback_history table:`, createErr.message);
+            console.error(`[${new Date().toISOString()}] Error creating/checking rollback_history table:`, createErr.message);
+            throw createErr; // Re-throw to be caught by outer catch
           }
 
           await queryDatabase(pool, 
-            `INSERT INTO rollback_history (env, rollback_tag) VALUES (?, ?)`,
-            [env, tag]
+            `INSERT INTO rollback_history (env, rollback_tag, status) VALUES (?, ?, ?)`,
+            [env, tag, 'SUCCESS']
           );
+          console.log(`[${new Date().toISOString()}] Successfully recorded legacy rollback in history:`, {
+            env, rollback_tag: tag, status: 'SUCCESS'
+          });
         }
       } catch (dbErr) {
         // Log but don't fail the rollback if table doesn't exist yet or insert fails
-        console.warn(`[${new Date().toISOString()}] Could not record rollback in history:`, dbErr.message);
+        console.error(`[${new Date().toISOString()}] FAILED to record legacy rollback in history:`, {
+          error: dbErr.message,
+          env, rollback_tag: tag
+        });
       }
       
       console.log(`[${new Date().toISOString()}] Rollback completed successfully`);
@@ -587,9 +608,19 @@ exports.getRollbackHistory = async (req, res) => {
            FROM rollback_history 
            ORDER BY rolled_back_at DESC`
         );
-        results[env] = rows;
+        
+        // Format timestamps to ISO format
+        const formattedRows = rows.map(row => ({
+          ...row,
+          rolled_back_at: row.rolled_back_at instanceof Date ? 
+            row.rolled_back_at.toISOString() : 
+            new Date(row.rolled_back_at).toISOString()
+        }));
+        
+        results[env] = formattedRows;
       } catch (err) {
         // Table might not exist yet
+        console.warn(`[${new Date().toISOString()}] Error fetching rollback history for ${env}:`, err.message);
         results[env] = [];
       }
     } else {
@@ -601,9 +632,19 @@ exports.getRollbackHistory = async (req, res) => {
              FROM rollback_history 
              ORDER BY rolled_back_at DESC`
           );
-          results[name] = rows;
+          
+          // Format timestamps to ISO format
+          const formattedRows = rows.map(row => ({
+            ...row,
+            rolled_back_at: row.rolled_back_at instanceof Date ? 
+              row.rolled_back_at.toISOString() : 
+              new Date(row.rolled_back_at).toISOString()
+          }));
+          
+          results[name] = formattedRows;
         } catch (err) {
           // Table might not exist yet
+          console.warn(`[${new Date().toISOString()}] Error fetching rollback history for ${name}:`, err.message);
           results[name] = [];
         }
       }

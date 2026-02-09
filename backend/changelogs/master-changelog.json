@@ -41,6 +41,12 @@
       "author": "dev-team",
       "filename": "changelogs/009-create-settings.xml",
       "description": "create application settings table"
+    },
+    {
+      "id": "010-add-status-to-app-settings",
+      "author": "dev-team",
+      "filename": "changelogs/010-add-status-to-app-settings.xml",
+      "description": "add status column to app_settings for feature toggling"
     }
   ]
 }

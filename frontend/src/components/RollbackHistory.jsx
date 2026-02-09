@@ -11,15 +11,21 @@ export default function RollbackHistory({env}){
   async function load(){
     try{
       const res = await getRollbackHistory(env);
+      console.log('Rollback history response:', res);
       setHistory(res);
     }catch(e){
-      console.error(e);
+      console.error('Error loading rollback history:', e);
     }finally{
       setLoading(false);
     }
   }
 
-  useEffect(()=>{ load(); }, [env]);
+  useEffect(()=>{ 
+    load(); 
+    // Auto-refresh every 15 seconds to see new rollbacks
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
+  }, [env]);
 
   function closeModal(){
     setShowModal(false);
@@ -66,15 +72,37 @@ export default function RollbackHistory({env}){
 
   const allRollbacks = [];
   Object.entries(history).forEach(([envName, rollbacks]) => {
-    rollbacks.forEach(r => {
-      allRollbacks.push({...r, env: r.env || envName});
-    });
+    if (Array.isArray(rollbacks)) {
+      rollbacks.forEach(r => {
+        allRollbacks.push({...r, env: r.env || envName});
+      });
+    }
   });
-  allRollbacks.sort((a, b) => new Date(b.rolled_back_at || b.executed_at) - new Date(a.rolled_back_at || a.executed_at));
+  allRollbacks.sort((a, b) => {
+    const dateA = a.rolled_back_at ? new Date(a.rolled_back_at) : new Date(0);
+    const dateB = b.rolled_back_at ? new Date(b.rolled_back_at) : new Date(0);
+    return dateB - dateA;
+  });
 
   return (
     <div className="card">
-      <h3 style={{marginTop: 0}}>Rollback History {env ? `(${env.toUpperCase()})` : '(All Environments)'}</h3>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+        <h3 style={{margin: 0}}>Rollback History {env ? `(${env.toUpperCase()})` : '(All Environments)'}</h3>
+        <button 
+          onClick={load}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontSize: 12
+          }}
+        >
+          Refresh
+        </button>
+      </div>
       {allRollbacks.length === 0 ? (
         <div style={{padding: 12, color: '#666'}}>No rollback history</div>
       ) : (
