@@ -100,7 +100,15 @@ export default function RollbackHistory({env}){
                   <td style={{padding: 12, border: '1px solid #ddd'}}>{r.filename || 'N/A'}</td>
                   <td style={{padding: 12, border: '1px solid #ddd'}}>{r.rollback_tag || r.tag || 'N/A'}</td>
                   <td style={{padding: 12, border: '1px solid #ddd'}}>
-                    {new Date(r.rolled_back_at || r.executed_at).toLocaleString()}
+                    {new Date(r.rolled_back_at || r.executed_at).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      timeZoneName: 'short'
+                    })}
                   </td>
                   <td style={{padding: 12, textAlign: 'center', border: '1px solid #ddd'}}>
                     <span style={{

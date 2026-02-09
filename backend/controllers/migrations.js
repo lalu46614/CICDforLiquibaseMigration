@@ -56,6 +56,14 @@ exports.getEnvironments = async (req, res) => {
            FROM DATABASECHANGELOG 
            ORDER BY dateexecuted DESC, orderexecuted DESC LIMIT 1`
         );
+        
+        // Format timestamp to ISO format if present
+        if (rows[0]) {
+          rows[0].dateexecuted = rows[0].dateexecuted instanceof Date ? 
+            rows[0].dateexecuted.toISOString() : 
+            new Date(rows[0].dateexecuted).toISOString();
+        }
+        
         results[name] = { latest: rows[0] || null, status: 'initialized' };
       } catch (err) {
         // Handle case where DATABASECHANGELOG table doesn't exist (Liquibase not initialized)
@@ -88,7 +96,14 @@ exports.getMigrationHistory = async (req, res) => {
        FROM DATABASECHANGELOG 
        ORDER BY orderexecuted DESC`
     );
-    res.json({ env, history: rows });
+    
+    // Format timestamps to ISO format
+    const formattedRows = rows.map(row => ({
+      ...row,
+      dateexecuted: row.dateexecuted instanceof Date ? row.dateexecuted.toISOString() : new Date(row.dateexecuted).toISOString()
+    }));
+    
+    res.json({ env, history: formattedRows });
   } catch (err) {
     if (err.code === 'ER_NO_SUCH_TABLE') {
       return res.json({ env, history: [], status: 'not_initialized', message: 'Liquibase has not been initialized yet' });
@@ -620,10 +635,20 @@ exports.getRecentDeployments = async (req, res) => {
           [limit]
         );
         
-        // Add environment info to each row
+        // Add environment info to each row and format timestamp
         rows.forEach(row => {
+          // Convert timestamp to ISO 8601 format for proper client-side timezone handling
+          let dateExecutedISO = row.dateexecuted;
+          if (row.dateexecuted instanceof Date) {
+            dateExecutedISO = row.dateexecuted.toISOString();
+          } else if (typeof row.dateexecuted === 'string') {
+            // Ensure it's ISO format
+            dateExecutedISO = new Date(row.dateexecuted).toISOString();
+          }
+          
           allDeployments.push({
             ...row,
+            dateexecuted: dateExecutedISO, // Override with ISO format
             env: envName,
             status: 'success' // All recorded migrations are successful
           });
@@ -771,8 +796,17 @@ exports.getMetrics = async (req, res) => {
              LIMIT 10`
           );
           rows.forEach(row => {
+            // Format timestamp to ISO format
+            let dateExecutedISO = row.dateexecuted;
+            if (row.dateexecuted instanceof Date) {
+              dateExecutedISO = row.dateexecuted.toISOString();
+            } else if (typeof row.dateexecuted === 'string') {
+              dateExecutedISO = new Date(row.dateexecuted).toISOString();
+            }
+            
             allDeployments.push({
               ...row,
+              dateexecuted: dateExecutedISO,
               env: envName,
               status: 'success'
             });

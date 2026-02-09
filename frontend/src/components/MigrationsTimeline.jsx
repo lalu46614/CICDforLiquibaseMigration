@@ -135,7 +135,15 @@ export default function MigrationsTimeline({env='dev', onRefresh, onRollbackComp
                     <div style={{flex: 1}}>
                       <div><strong>{h.id}</strong> — {h.description || h.filename}</div>
                       <div style={{fontSize:12, color:'#666', marginTop: 4}}>
-                        by {h.author} • {h.dateexecuted ? new Date(h.dateexecuted).toLocaleString() : 'N/A'}
+                        by {h.author} • {h.dateexecuted ? new Date(h.dateexecuted).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          timeZoneName: 'short'
+                        }) : 'N/A'}
                       </div>
                     </div>
                     <div style={{fontSize: 20, color: '#999'}}>
