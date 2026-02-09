@@ -8,45 +8,30 @@
       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.33.xsd">
 
 
-    <changeSet id="011-insert-maintenance-setting" author="lalu">
+    <changeSet id="011-insert-app-name-setting" author="lalu">
 
-        <!-- Comment first -->
-        <comment>Insert maintenance_mode setting</comment>
-
-
-        <!-- Preconditions must come BEFORE insert -->
-        <preConditions onFail="MARK_RAN">
-
-            <not>
-                <sqlCheck expectedResult="0">
-                    SELECT COUNT(*)
-                    FROM app_settings
-                    WHERE setting_key = 'maintenance_mode'
-                </sqlCheck>
-            </not>
-
-        </preConditions>
+        <comment>Insert app_name setting</comment>
 
 
-        <!-- Insert -->
-        <insert tableName="app_settings">
+        <!-- DO NOT use preConditions (avoids parser issues) -->
+        <sql>
+            INSERT INTO app_settings (setting_key, setting_value)
+            SELECT 'app_name', 'MyApplication'
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 FROM app_settings
+                WHERE setting_key = 'app_name'
+            );
+        </sql>
 
-            <column name="setting_key" value="maintenance_mode"/>
 
-            <column name="setting_value" value="false"/>
-
-        </insert>
-
-
-        <!-- Rollback -->
         <rollback>
 
             <delete tableName="app_settings">
-                <where>setting_key = 'maintenance_mode'</where>
+                <where>setting_key = 'app_name'</where>
             </delete>
 
         </rollback>
-
 
     </changeSet>
 
