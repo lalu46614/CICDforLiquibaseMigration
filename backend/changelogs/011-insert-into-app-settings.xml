@@ -7,36 +7,46 @@
       http://www.liquibase.org/xml/ns/dbchangelog
       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.33.xsd">
 
-    <changeSet id="010-insert-theme-setting" author="dev-team">
 
-        <comment>Insert default theme setting</comment>
+    <changeSet id="011-insert-maintenance-setting" author="lalu">
 
-        <!-- Run only if key does NOT already exist -->
+        <!-- Comment first -->
+        <comment>Insert maintenance_mode setting</comment>
+
+
+        <!-- Preconditions must come BEFORE insert -->
         <preConditions onFail="MARK_RAN">
+
             <not>
                 <sqlCheck expectedResult="0">
-                    SELECT COUNT(*) FROM app_settings
-                    WHERE setting_key = 'theme'
+                    SELECT COUNT(*)
+                    FROM app_settings
+                    WHERE setting_key = 'maintenance_mode'
                 </sqlCheck>
             </not>
+
         </preConditions>
 
 
+        <!-- Insert -->
         <insert tableName="app_settings">
 
-            <column name="setting_key" value="theme"/>
-            <column name="setting_value" value="dark"/>
+            <column name="setting_key" value="maintenance_mode"/>
+
+            <column name="setting_value" value="false"/>
 
         </insert>
 
 
+        <!-- Rollback -->
         <rollback>
 
             <delete tableName="app_settings">
-                <where>setting_key = 'theme'</where>
+                <where>setting_key = 'maintenance_mode'</where>
             </delete>
 
         </rollback>
+
 
     </changeSet>
 
