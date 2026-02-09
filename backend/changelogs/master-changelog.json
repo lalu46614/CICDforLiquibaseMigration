@@ -47,6 +47,12 @@
       "author": "dev-team",
       "filename": "changelogs/010-add-status-to-app-settings.xml",
       "description": "add status column to app_settings for feature toggling"
+    },
+    {
+      "id": "011-insert-into-app-settings",
+      "author": "dev-team",
+      "filename": "changelogs/011-insert-into-app-settings.xml",
+      "description": "insert initial settings data"
     }
   ]
 }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+      http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.33.xsd">
+
+    <changeSet id="010-insert-theme-setting" author="dev-team">
+
+        <comment>Insert default theme setting</comment>
+
+        <!-- Run only if key does NOT already exist -->
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <sqlCheck expectedResult="0">
+                    SELECT COUNT(*) FROM app_settings
+                    WHERE setting_key = 'theme'
+                </sqlCheck>
+            </not>
+        </preConditions>
+
+
+        <insert tableName="app_settings">
+
+            <column name="setting_key" value="theme"/>
+            <column name="setting_value" value="dark"/>
+
+        </insert>
+
+
+        <rollback>
+
+            <delete tableName="app_settings">
+                <where>setting_key = 'theme'</where>
+            </delete>
+
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
