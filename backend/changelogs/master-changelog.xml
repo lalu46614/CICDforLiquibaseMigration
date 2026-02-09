@@ -16,6 +16,7 @@
     <include file="005-create-rollback-history.xml"/>
     <include file="008-insert-seed-data.xml"/>
     <include file="009-create-settings.xml"/>
+    <include file="010-add-status-to-app-settings.xml"/>
 
 
 </databaseChangeLog>

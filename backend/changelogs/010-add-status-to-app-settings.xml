@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+    <changeSet id="010-add-status-to-app-settings" author="dev-team">   
+        <comment>Add status column to app_settings for future use</comment>
+        
+        <addColumn tableName="app_settings">
+            <column name="status" type="VARCHAR(20)" defaultValue="active">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <update tableName="app_settings">
+            <column name="status" value="active"/>
+        </update>
+
+        <rollback>
+            <dropColumn tableName="app_settings" columnName="status"/>
+        </rollback>
