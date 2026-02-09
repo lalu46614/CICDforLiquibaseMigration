@@ -53,6 +53,12 @@
       "author": "dev-team",
       "filename": "changelogs/011-insert-into-app-settings.xml",
       "description": "insert initial settings data"
+    },
+    {
+      "id": "012-create-student",
+      "author": "lalu",
+      "filename": "changelogs/012-create-student.xml",
+      "description": "create student table"
     }
   ]
 }

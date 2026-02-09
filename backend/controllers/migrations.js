@@ -129,18 +129,17 @@ exports.getPendingMigrations = async (req, res) => {
       const dbRows = await queryDatabase(pool, `SELECT id, author, filename FROM DATABASECHANGELOG`);
       
       // Use basename for filename comparison since DATABASECHANGELOG stores absolute paths
-      const appliedSet = new Set(
-        dbRows.map(r => {
-          const basename = path.basename(r.filename);
-          return `${r.id}||${r.author}||${basename}`;
-        })
+      // Consider a changeset applied if any DATABASECHANGELOG row references the same
+      // changelog filename (basename). This is more robust than relying on id/author
+      // because some changesets may use different id/author values inside the XML.
+      const appliedBasenameSet = new Set(
+        dbRows.map(r => path.basename(r.filename))
       );
 
-      // Compare using basename of manifest filename
+      // Compare using basename of manifest filename only
       const pending = manifest.changesets.filter(cs => {
         const manifestBasename = path.basename(cs.filename);
-        const key = `${cs.id}||${cs.author}||${manifestBasename}`;
-        return !appliedSet.has(key);
+        return !appliedBasenameSet.has(manifestBasename);
       });
 
       res.json({ env, pending });
@@ -739,18 +738,14 @@ exports.getVersionMap = async (req, res) => {
       // Check each environment
       for (const [envName, pool] of Object.entries(envPools)) {
         try {
+          // Query by filename basename - more robust when id/author inside the XML
           const dbRows = await queryDatabase(pool, 
-            `SELECT id, author, filename 
-             FROM DATABASECHANGELOG 
-             WHERE id = ? AND author = ?`,
-            [changeset.id, changeset.author]
+            `SELECT filename FROM DATABASECHANGELOG WHERE filename LIKE ?`,
+            [`%${manifestBasename}%`]
           );
-          
+
           // Check if any row matches by basename
-          const isApplied = dbRows.some(r => {
-            const dbBasename = path.basename(r.filename);
-            return dbBasename === manifestBasename;
-          });
+          const isApplied = dbRows.some(r => path.basename(r.filename) === manifestBasename);
           
           row[envName] = isApplied;
         } catch (err) {
@@ -794,17 +789,12 @@ exports.getMetrics = async (req, res) => {
           `SELECT id, author, filename FROM DATABASECHANGELOG`
         );
         
-        const appliedSet = new Set(
-          dbRows.map(r => {
-            const basename = path.basename(r.filename);
-            return `${r.id}||${r.author}||${basename}`;
-          })
-        );
-        
+        // Use basename matching for applied detection (robust against id/author mismatches)
+        const appliedBasenameSet = new Set(dbRows.map(r => path.basename(r.filename)));
+
         const pending = manifest.changesets.filter(cs => {
           const manifestBasename = path.basename(cs.filename);
-          const key = `${cs.id}||${cs.author}||${manifestBasename}`;
-          return !appliedSet.has(key);
+          return !appliedBasenameSet.has(manifestBasename);
         });
         
         metrics.appliedPerEnv[envName] = dbRows.length;

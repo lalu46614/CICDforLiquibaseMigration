@@ -18,6 +18,7 @@
     <include file="009-create-settings.xml"/>
     <include file="010-add-status-to-app-settings.xml"/>
     <include file="011-insert-into-app-settings.xml"/>
+    <include file="012-create-student.xml"/>
 
 
 </databaseChangeLog>
