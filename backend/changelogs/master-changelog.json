@@ -59,6 +59,13 @@
       "author": "lalu",
       "filename": "changelogs/012-create-student.xml",
       "description": "create student table"
+    },
+    {
+      "id": "013-create-employee",
+      "author": "lalu",
+      "filename": "changelogs/013-create-employee.xml",
+      "description": "create employee table"
     }
+
   ]
 }
