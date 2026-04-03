@@ -1,4 +1,4 @@
-# Monitoring Dashboard — Phase 6
+# Monitoring Dashboard 
 
 A DevOps/DB admin console for managing Liquibase-managed MySQL schema migrations across three environments: DEV, QA, and PROD.
 
