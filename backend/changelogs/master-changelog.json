@@ -77,6 +77,12 @@
       "author": "lalu",
       "filename": "changelogs/015-multi-env-promotion-test.xml",
       "description": "insert second CI promotion test marker in app_settings"
+    },
+    {
+      "id": "016-promotion-smoke-test",
+      "author": "lalu",
+      "filename": "changelogs/016-promotion-smoke-test.xml",
+      "description": "insert promotion smoke test marker in app_settings"
     }
 
   ]
