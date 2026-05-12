@@ -1,625 +1,349 @@
-# Monitoring Dashboard 
+# Liquibase Migration Dashboard
 
-A DevOps/DB admin console for managing Liquibase-managed MySQL schema migrations across three environments: DEV, QA, and PROD.
+A DevOps and database admin console for Liquibase-managed MySQL schema migrations across DEV, QA, and PROD. The web dashboard shows environment status, migration history, and pending changesets. GitHub Actions can deploy to Railway MySQL. Docker images cover the dashboard and a portable Liquibase CLI runner.
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
-- [Quick Start Guide](#quick-start-guide)
-- [Detailed Setup Instructions](#detailed-setup-instructions)
-- [Running the Application](#running-the-application)
-- [Using the Dashboard](#using-the-dashboard)
+- [Project structure](#project-structure)
+- [Configuration](#configuration)
+- [Run the dashboard](#run-the-dashboard)
+- [Liquibase migration container](#liquibase-migration-container)
+- [CI/CD on Railway](#cicd-on-railway)
+- [Using the dashboard](#using-the-dashboard)
 - [Troubleshooting](#troubleshooting)
-- [API Endpoints](#api-endpoints)
-- [Acceptance Criteria](#acceptance-criteria)
+- [API endpoints](#api-endpoints)
 
 ## Overview
 
-This dashboard provides a web-based interface to:
-- View environment status (DEV/QA/PROD) and current schema versions
-- View migration history from `DATABASECHANGELOG` table
-- View pending migrations (compares `master-changelog.json` vs database)
-- Execute migrations via Liquibase CLI
-- Perform rollbacks to specific tags
+The dashboard lets you:
+
+- View connection status and latest schema version per environment
+- Read migration history from `DATABASECHANGELOG`
+- Compare pending work against `master-changelog.json`
+- Run migrations and rollbacks through the backend API (Liquibase CLI)
 - Compare schemas between environments
+
+Changelog XML files live under `backend/changelogs/`. The Liquibase root file used by CI and the migration container is `master-changelog.xml`.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph local [Your machine]
+    UI[Frontend :3000]
+    API[Backend :4000]
+    LBIMG[Liquibase image]
+    DASHIMG[Dashboard images]
+  end
+  subgraph cloud [Cloud]
+    GHA[GitHub Actions]
+    RAIL[(Railway MySQL)]
+  end
+  UI --> API
+  API --> RAIL
+  GHA --> RAIL
+  LBIMG --> RAIL
+  DASHIMG --> UI
+  DASHIMG --> API
+```
+
+| Component | Purpose |
+|-----------|---------|
+| `backend/` + `frontend/` | Node.js API and React UI |
+| `docker-compose.yml` | Runs pre-built dashboard images on ports 4000 and 3000 |
+| `prism-liquibase:build` | Portable Java 17 + Liquibase 4.33.0 + MySQL JDBC for manual `validate` / `update` |
+| `.github/workflows/liquibase-pipeline.yml` | Push to `main` deploys DEV, then QA and PROD with GitHub environment approvals |
+| Railway MySQL | Hosted databases referenced by `backend/.env` and GitHub secrets |
+
+The Liquibase migration image does not run the dashboard. The dashboard backend image includes its own Liquibase install for API-triggered migrations.
 
 ## Prerequisites
 
-- **Windows 10/11** (tested on Windows 10.0.26100)
-- **Node.js** (v14 or higher) and npm
-- **Docker Desktop** for Windows (for MySQL containers)
-- **Liquibase CLI** installed at `C:\Program Files\liquibase\`
-- **MySQL JDBC Driver** (mysql-connector-j-*.jar) in Liquibase lib folder
+- **Node.js** 18+ and npm (local development)
+- **Docker Desktop** (optional, for containerized dashboard or Liquibase runner)
+- **MySQL** reachable from your machine (Railway proxy URLs or local MySQL)
+- **GitHub** repository with environment secrets for CI (see below)
 
-## Quick Start Guide
+On Windows, local Liquibase is optional if you use Docker for CLI migrations or only use the dashboard and CI.
 
-### 1. Clone and Install Dependencies
-
-```powershell
-cd D:\PRISM\phase6_dashboard
-cd backend
-npm install
-cd ..\frontend
-npm install
-```
-
-### 2. Set Up MySQL Containers
-
-```powershell
-# From project root
-docker-compose up -d
-
-# Wait for containers to be healthy (about 30 seconds)
-docker-compose ps
-```
-
-### 3. Install Liquibase and JDBC Driver
-
-1. Download Liquibase from https://www.liquibase.org/download
-2. Extract to `C:\Program Files\liquibase\`
-3. Download MySQL JDBC driver (e.g., `mysql-connector-j-9.5.0.jar`)
-4. Copy the JAR file to `C:\Program Files\liquibase\lib\`
-
-**Verify Liquibase installation:**
-```powershell
-& "C:\Program Files\liquibase\liquibase.bat" --version
-```
-
-### 4. Configure Environment Variables
-
-Create a `.env` file in the `backend/` directory:
-
-```env
-# Database Connection URLs
-# Format: jdbc:mysql://host:port/database?user=username&password=password
-DEV_DATABASE_URL=jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin
-QA_DATABASE_URL=jdbc:mysql://127.0.0.1:3308/testdb_qa?user=root&password=admin
-PROD_DATABASE_URL=jdbc:mysql://127.0.0.1:3309/testdb_prod?user=root&password=admin
-
-# Liquibase Configuration
-LIQUIBASE_PATH=C:/Program Files/liquibase/liquibase.bat
-
-# Backend Server Port
-PORT=4000
-```
-
-**Important:** 
-- Save the `.env` file with **UTF-8 encoding (no BOM)**
-- Use forward slashes in `LIQUIBASE_PATH` even on Windows
-- Ensure no trailing spaces or hidden characters
-
-### 5. Bootstrap Databases (Optional)
-
-Before using the dashboard, you can manually bootstrap the databases:
-
-```powershell
-# For DEV environment
-& "C:\Program Files\liquibase\liquibase.bat" `
-  --url="jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin" `
-  --changeLogFile="D:/PRISM/phase6_dashboard/backend/changelogs/001-create-users.xml" `
-  update
-
-# Verify status
-& "C:\Program Files\liquibase\liquibase.bat" `
-  --url="jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin" `
-  --changeLogFile="D:/PRISM/phase6_dashboard/backend/changelogs/001-create-users.xml" `
-  status
-```
-
-### 6. Start the Application
-
-**Terminal 1 - Backend:**
-```powershell
-cd backend
-npm start
-```
-
-**Terminal 2 - Frontend:**
-```powershell
-cd frontend
-npm start
-```
-
-The frontend will open at `http://localhost:3000` and the backend API at `http://localhost:4000`.
-
-## Detailed Setup Instructions
-
-### MySQL Containers Setup
-
-The `docker-compose.yml` file defines three MySQL 8 containers:
-
-- **DEV**: `testdb_dev` on port `3307`
-- **QA**: `testdb_qa` on port `3308`
-- **PROD**: `testdb_prod` on port `3309`
-
-All databases are created automatically with:
-- Root password: `admin`
-- Database names: `testdb_dev`, `testdb_qa`, `testdb_prod`
-
-**Start containers:**
-```powershell
-docker-compose up -d
-```
-
-**Check container status:**
-```powershell
-docker-compose ps
-docker-compose logs devdb
-```
-
-**Stop containers:**
-```powershell
-docker-compose down
-```
-
-**Remove volumes (clean slate):**
-```powershell
-docker-compose down -v
-```
-
-### Liquibase Installation
-
-1. **Download Liquibase:**
-   - Visit https://www.liquibase.org/download
-   - Download the ZIP file for Windows
-   - Extract to `C:\Program Files\liquibase\`
-
-2. **Verify Installation:**
-   ```powershell
-   & "C:\Program Files\liquibase\liquibase.bat" --version
-   ```
-   Should output something like: `Liquibase Version: 4.x.x`
-
-3. **Install MySQL JDBC Driver:**
-   - Download `mysql-connector-j-9.5.0.jar` (or latest version)
-   - Copy to `C:\Program Files\liquibase\lib\`
-   - Verify the file exists:
-     ```powershell
-     Test-Path "C:\Program Files\liquibase\lib\mysql-connector-j-9.5.0.jar"
-     ```
-
-### Environment Variables (.env)
-
-Create `backend/.env` with the following variables:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DEV_DATABASE_URL` | JDBC URL for DEV database | `jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin` |
-| `QA_DATABASE_URL` | JDBC URL for QA database | `jdbc:mysql://127.0.0.1:3308/testdb_qa?user=root&password=admin` |
-| `PROD_DATABASE_URL` | JDBC URL for PROD database | `jdbc:mysql://127.0.0.1:3309/testdb_prod?user=root&password=admin` |
-| `LIQUIBASE_PATH` | Path to Liquibase executable (forward slashes) | `C:/Program Files/liquibase/liquibase.bat` |
-| `PORT` | Backend server port | `4000` |
-
-**URL Format Options:**
-- `jdbc:mysql://host:port/database?user=xxx&password=yyy`
-- `mysql://user:password@host:port/database`
-
-**Important Notes:**
-- Save `.env` as **UTF-8 without BOM** (use Notepad++ or VS Code)
-- Use forward slashes in `LIQUIBASE_PATH` even on Windows
-- No quotes needed around values in `.env` file
-- No trailing spaces
-
-### Changelog Files
-
-Changelog files are located in `backend/changelogs/`:
-
-- `001-create-users.xml` - Creates `app_users` table
-- `002-add-email.xml` - Adds `email` column to `app_users`
-- `master-changelog.json` - Manifest listing all changesets
-
-The `master-changelog.json` format:
-```json
-{
-  "changesets": [
-    {
-      "id": "001-create-users",
-      "author": "lalu",
-      "filename": "changelogs/001-create-users.xml",
-      "description": "create users table"
-    },
-    {
-      "id": "002-add-email",
-      "author": "lalu",
-      "filename": "changelogs/002-add-email.xml",
-      "description": "add email column"
-    }
-  ]
-}
-```
-
-## Running the Application
-
-### Start Backend
-
-```powershell
-cd backend
-npm start
-```
-
-Expected output:
-```
-Server running on 4000
-```
-
-### Start Frontend
-
-```powershell
-cd frontend
-npm start
-```
-
-The React app will open in your browser at `http://localhost:3000`.
-
-### Verify Backend Health
-
-```powershell
-# In PowerShell
-Invoke-WebRequest -Uri http://localhost:4000/health
-```
-
-Or visit `http://localhost:4000/health` in a browser.
-
-## Using the Dashboard
-
-### Viewing Environment Status
-
-The dashboard displays three environment cards (DEV, QA, PROD) showing:
-- Database connection status (✅ Connected / 🔴 Down)
-- Latest migration applied
-- Click on an environment card to select it
-
-### Viewing Pending Migrations
-
-1. Select an environment (click the card)
-2. The "Pending Migrations" panel shows migrations not yet applied
-3. Click "Run" to execute a migration
-4. Confirm the action in the dialog
-5. View the output in a modal (scrollable, shows stdout/stderr)
-
-### Viewing Migration History
-
-The "Migration History" panel shows all applied migrations from `DATABASECHANGELOG`, ordered by execution time.
-
-### Executing Migrations
-
-1. Click "Run" on a pending migration
-2. Confirm in the dialog
-3. Wait for execution (button shows "Running...")
-4. View output in modal (success or error)
-5. Dashboard auto-refreshes after successful execution
-
-### Manual Liquibase Commands
-
-You can also run Liquibase manually from PowerShell:
-
-```powershell
-# Update (apply pending migrations)
-& "C:\Program Files\liquibase\liquibase.bat" `
-  --url="jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin" `
-  --changeLogFile="D:/PRISM/phase6_dashboard/backend/changelogs/001-create-users.xml" `
-  update
-
-# Check status
-& "C:\Program Files\liquibase\liquibase.bat" `
-  --url="jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin" `
-  --changeLogFile="D:/PRISM/phase6_dashboard/backend/changelogs/001-create-users.xml" `
-  status
-
-# Rollback to a tag
-& "C:\Program Files\liquibase\liquibase.bat" `
-  --url="jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin" `
-  --changeLogFile="D:/PRISM/phase6_dashboard/backend/changelogs/001-create-users.xml" `
-  rollback tag_name
-```
-
-**Key Points:**
-- Use forward slashes in `--changeLogFile` path
-- Quote paths with spaces
-- Use `& "path"` syntax in PowerShell for paths with spaces
-
-## Troubleshooting
-
-### Common Errors and Fixes
-
-#### 1. "The system cannot find the path specified"
-
-**Error:** Liquibase executable not found
-
-**Fix:**
-- Verify Liquibase is installed at `C:\Program Files\liquibase\liquibase.bat`
-- Check `.env` file has correct `LIQUIBASE_PATH` (use forward slashes)
-- Test manually: `& "C:\Program Files\liquibase\liquibase.bat" --version`
-
-#### 2. "Unknown database 'ysql://...'"
-
-**Error:** Database URL parsing issue (often due to BOM or wrong format)
-
-**Fix:**
-- Ensure `.env` file is saved as **UTF-8 without BOM**
-- Check URL format: `jdbc:mysql://127.0.0.1:3307/testdb_dev?user=root&password=admin`
-- Verify no hidden characters or trailing spaces
-- Use Notepad++ or VS Code to edit `.env` and save as UTF-8
-
-#### 3. "ChangeLogParseException: Could not find file"
-
-**Error:** Liquibase cannot find the changelog file
-
-**Fix:**
-- Backend converts paths to forward slashes automatically
-- Ensure changelog file exists in `backend/changelogs/`
-- Check backend logs for the exact path being used
-- Verify file permissions (readable)
-
-#### 4. "ClassNotFoundException: com.mysql.cj.jdbc.Driver"
-
-**Error:** MySQL JDBC driver not found
-
-**Fix:**
-- Copy `mysql-connector-j-*.jar` to `C:\Program Files\liquibase\lib\`
-- Verify file exists: `Test-Path "C:\Program Files\liquibase\lib\mysql-connector-j-9.5.0.jar"`
-- Restart backend after adding driver
-
-#### 5. "Duplicate JAR" warnings
-
-**Warning:** Multiple MySQL connector JARs found
-
-**Fix:**
-- This is usually harmless, but you can remove duplicate JARs from `lib/` folder
-- Keep only the version you need (e.g., `mysql-connector-j-9.5.0.jar`)
-
-#### 6. Database Connection Errors
-
-**Error:** `ECONNREFUSED` or `ER_ACCESS_DENIED_ERROR`
-
-**Fix:**
-- Verify Docker containers are running: `docker-compose ps`
-- Check container logs: `docker-compose logs devdb`
-- Verify ports are correct (3307, 3308, 3309)
-- Test connection manually:
-  ```powershell
-  mysql -h 127.0.0.1 -P 3307 -u root -padmin -e "SELECT 1"
-  ```
-
-#### 7. PowerShell Path Quoting Issues
-
-**Error:** Commands fail with paths containing spaces
-
-**Fix:**
-- Use `& "path"` syntax: `& "C:\Program Files\liquibase\liquibase.bat" --version`
-- Or use `&` operator: `& 'C:\Program Files\liquibase\liquibase.bat' --version`
-- Backend handles quoting automatically, but verify in logs
-
-#### 8. Backend Fails to Start
-
-**Error:** Port already in use or module not found
-
-**Fix:**
-- Check if port 4000 is in use: `netstat -ano | findstr :4000`
-- Kill process if needed or change `PORT` in `.env`
-- Reinstall dependencies: `cd backend && npm install`
-
-### Useful Diagnostic Commands
-
-```powershell
-# Test Liquibase installation
-& "C:\Program Files\liquibase\liquibase.bat" --version
-
-# Test database connectivity
-mysql -h 127.0.0.1 -P 3307 -u root -padmin -e "SELECT 1"
-
-# Check Docker containers
-docker-compose ps
-docker-compose logs devdb
-
-# Test backend API
-Invoke-WebRequest -Uri http://localhost:4000/health
-Invoke-WebRequest -Uri http://localhost:4000/api/database/status
-
-# Check if JDBC driver exists
-Test-Path "C:\Program Files\liquibase\lib\mysql-connector-j-9.5.0.jar"
-
-# Verify .env file encoding (should be UTF-8)
-Get-Content backend\.env -Encoding UTF8 | Select-Object -First 1
-```
-
-### Manual Database Verification
-
-```powershell
-# Connect to DEV database
-mysql -h 127.0.0.1 -P 3307 -u root -padmin testdb_dev
-
-# In MySQL prompt:
-SHOW TABLES;
-SELECT * FROM DATABASECHANGELOG;
-SELECT * FROM DATABASECHANGELOGLOCK;
-```
-
-## API Endpoints
-
-### GET /api/environments
-Returns latest migration for each environment.
-
-**Response:**
-```json
-{
-  "dev": { "latest": { "id": "001-create-users", "author": "lalu", ... } },
-  "qa": { "latest": null },
-  "prod": { "latest": null }
-}
-```
-
-### GET /api/migrations/history?env=dev
-Returns migration history for an environment.
-
-**Response:**
-```json
-{
-  "env": "dev",
-  "history": [
-    { "id": "001-create-users", "author": "lalu", "dateexecuted": "...", ... }
-  ]
-}
-```
-
-### GET /api/migrations/pending?env=dev
-Returns pending migrations (from `master-changelog.json` not in database).
-
-**Response:**
-```json
-{
-  "env": "dev",
-  "pending": [
-    { "id": "002-add-email", "author": "lalu", "filename": "changelogs/002-add-email.xml", ... }
-  ]
-}
-```
-
-### GET /api/database/status
-Returns connection status for all environments.
-
-**Response:**
-```json
-{
-  "dev": { "ok": true },
-  "qa": { "ok": true },
-  "prod": { "ok": false, "error": "..." }
-}
-```
-
-### POST /api/migrations/execute
-Executes a migration.
-
-**Request Body:**
-```json
-{
-  "env": "dev",
-  "changelogFile": "changelogs/002-add-email.xml"
-}
-```
-
-**Response:**
-```json
-{
-  "ok": true,
-  "output": "Liquibase output...",
-  "warnings": null
-}
-```
-
-### POST /api/migrations/rollback
-Rolls back to a tag.
-
-**Request Body:**
-```json
-{
-  "env": "dev",
-  "tag": "tag_name"
-}
-```
-
-### GET /api/migrations/diff?source=dev&target=qa
-Compares schemas between environments.
-
-## Acceptance Criteria
-
-### ✅ From Scratch Setup
-
-1. **Docker Compose:**
-   ```powershell
-   docker-compose up -d
-   ```
-   - Creates three MySQL instances
-   - Databases `testdb_dev`, `testdb_qa`, `testdb_prod` are created
-   - Containers are healthy
-
-2. **Liquibase CLI:**
-   ```powershell
-   & "C:\Program Files\liquibase\liquibase.bat" --version
-   ```
-   - Prints version without error
-   - `status` command returns "is up to date" after bootstrapping
-
-3. **Backend:**
-   ```powershell
-   cd backend
-   npm start
-   ```
-   - No exceptions in logs
-   - `GET /api/database/status` returns all three `{ ok: true }`
-
-4. **Frontend:**
-   ```powershell
-   cd frontend
-   npm start
-   ```
-   - Opens at `http://localhost:3000`
-   - Shows three environment cards
-   - Pending migrations list is visible
-
-### ✅ Migration Execution
-
-1. **Pending Migration Display:**
-   - Shows `002-add-email` in pending list for DEV (if `001-create-users` is applied)
-   - Displays readable name and description
-
-2. **Execute Migration:**
-   - Click "Run" on `002-add-email`
-   - Confirm dialog appears
-   - Migration executes
-   - Output modal shows stdout/stderr
-   - Pending list updates (removes executed migration)
-   - History updates (shows new migration)
-   - Environment status updates
-
-3. **Database Verification:**
-   ```sql
-   SELECT * FROM DATABASECHANGELOG;
-   ```
-   - Migration is recorded in `DATABASECHANGELOG`
-   - `app_users` table has `email` column (for `002-add-email`)
-
-### ✅ Error Handling
-
-- No Liquibase fatal error dialogs (only optional warnings)
-- Errors are displayed in modal with full details
-- Backend logs show full command and output
-- Frontend handles errors gracefully
-
-## Project Structure
+## Project structure
 
 ```
-phase6_dashboard/
+CICDforLiquibaseMigration/
+├── .github/workflows/
+│   └── liquibase-pipeline.yml
 ├── backend/
 │   ├── changelogs/
-│   │   ├── 001-create-users.xml
-│   │   ├── 002-add-email.xml
-│   │   └── master-changelog.json
-│   ├── controllers/
-│   │   └── migrations.js
-│   ├── db/
-│   │   └── pool.js
-│   ├── liquibase.properties
-│   ├── .env (create this)
-│   ├── package.json
+│   │   ├── master-changelog.xml
+│   │   ├── master-changelog.json
+│   │   └── *.xml
+│   ├── controllers/migrations.js
+│   ├── db/pool.js
+│   ├── Dockerfile
+│   ├── env.template
+│   ├── .env                    # create locally; not committed
 │   └── server.js
 ├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── EnvironmentCard.jsx
-│   │   │   ├── MigrationsTimeline.jsx
-│   │   │   └── PendingMigrations.jsx
-│   │   ├── api.js
-│   │   ├── App.jsx
-│   │   └── index.jsx
-│   └── package.json
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── public/
+│   └── src/
+├── scripts/
+│   ├── build-dashboard-docker.ps1
+│   └── start-dashboard-docker.ps1
 ├── docker-compose.yml
 └── README.md
 ```
 
+## Configuration
+
+### Backend environment file
+
+Copy `backend/env.template` to `backend/.env` and set JDBC URLs for each environment.
+
+```env
+DEV_DATABASE_URL=jdbc:mysql://HOST:PORT/DATABASE?user=USER&password=PASS
+QA_DATABASE_URL=jdbc:mysql://HOST:PORT/DATABASE?user=USER&password=PASS
+PROD_DATABASE_URL=jdbc:mysql://HOST:PORT/DATABASE?user=USER&password=PASS
+
+# Windows host only
+LIQUIBASE_PATH=C:/Program Files/liquibase/liquibase.bat
+
+PORT=4000
+```
+
+Notes:
+
+- Save `backend/.env` as UTF-8 without BOM.
+- Use forward slashes in `LIQUIBASE_PATH` on Windows.
+- Railway public URLs often work as `jdbc:mysql://user:pass@host:port/database`. If SSL errors appear, add `?sslMode=REQUIRED&allowPublicKeyRetrieval=true` (or append with `&` if `?` already exists).
+- Use separate Railway MySQL services per environment in production. Using one URL for DEV, QA, and PROD is only suitable for demos.
+
+### GitHub Actions secrets
+
+In GitHub, configure environments `dev`, `qa`, and `prod` with secrets:
+
+| Secret | Description |
+|--------|-------------|
+| `DEV_DB_URL` | JDBC URL for DEV Railway MySQL |
+| `QA_DB_URL` | JDBC URL for QA Railway MySQL |
+| `PROD_DB_URL` | JDBC URL for PROD Railway MySQL |
+
+The workflow installs Liquibase 4.33.0 and MySQL connector 9.1.0 on the runner, then runs `validate` and `update` against `backend/changelogs/master-changelog.xml`.
+
+## Run the dashboard
+
+### Option A: Node.js on the host
+
+```powershell
+cd backend
+npm install
+npm start
+```
+
+In a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm start
+```
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:4000
+- Health: http://localhost:4000/health
+
+The backend reads `backend/.env` and shells out to `LIQUIBASE_PATH` when you run migrations from the UI.
+
+### Option B: Docker Compose
+
+Build images once (prefer the script on Windows; avoid `docker compose build` if Buildx Bake hangs):
+
+```powershell
+.\scripts\build-dashboard-docker.ps1
+```
+
+Start the stack:
+
+```powershell
+docker compose up -d
+docker compose ps
+```
+
+Stop:
+
+```powershell
+docker compose down
+```
+
+`docker-compose.yml` maps the backend to port **4000** and the frontend to **3000** (nginx inside the frontend container listens on 80). The backend container sets `LIQUIBASE_PATH=/opt/liquibase/liquibase` and loads database URLs from `backend/.env`.
+
+If Compose is slow or stuck, restart Docker Desktop, then use:
+
+```powershell
+.\scripts\start-dashboard-docker.ps1
+```
+
+That script runs the same images with `docker run`. Free ports **4000** and **3000** before starting (stop host `npm start` or other listeners).
+
+Rebuild dashboard images after changing application code or dependencies:
+
+```powershell
+.\scripts\build-dashboard-docker.ps1
+```
+
+## Liquibase migration container
+
+Use a dedicated image when you want a reproducible Liquibase CLI environment (manual migrations, coursework, or sharing a saved image). This is separate from the dashboard containers.
+
+### Build the image (one-time)
+
+```powershell
+docker pull ubuntu:22.04
+docker run -it --name prism-lb-build -v D:\PRISM\CICDforLiquibaseMigration:/workspace/CICDforLiquibaseMigration ubuntu:22.04 /bin/bash
+```
+
+Inside the container:
+
+```bash
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y openjdk-17-jdk curl unzip ca-certificates
+
+export LB_VERSION=4.33.0
+export MYSQL_VERSION=9.1.0
+curl -sLo /tmp/lb.zip "https://github.com/liquibase/liquibase/releases/download/v${LB_VERSION}/liquibase-${LB_VERSION}.zip"
+unzip -q /tmp/lb.zip -d /opt/liquibase
+chmod +x /opt/liquibase/liquibase
+mkdir -p /opt/liquibase/lib
+curl -sLo /opt/liquibase/lib/mysql.jar \
+  "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/${MYSQL_VERSION}/mysql-connector-j-${MYSQL_VERSION}.jar"
+echo 'export PATH="/opt/liquibase:$PATH"' >> /root/.bashrc
+/opt/liquibase/liquibase --version
+exit
+```
+
+On the host:
+
+```powershell
+docker commit prism-lb-build prism-liquibase:build
+docker save -o prism-liquibase-build.tar prism-liquibase:build
+```
+
+### Run migrations against Railway (or any JDBC URL)
+
+```powershell
+docker run -it --rm -v D:\PRISM\CICDforLiquibaseMigration:/workspace/CICDforLiquibaseMigration prism-liquibase:build /bin/bash
+```
+
+```bash
+cd /workspace/CICDforLiquibaseMigration
+export JDBC_URL="$(grep '^DEV_DATABASE_URL=' backend/.env | cut -d= -f2-)"
+
+liquibase \
+  --url="$JDBC_URL" \
+  --changeLogFile=master-changelog.xml \
+  --searchPath="$PWD/backend/changelogs" \
+  --classpath="/opt/liquibase/lib/mysql.jar" \
+  validate
+
+liquibase \
+  --url="$JDBC_URL" \
+  --changeLogFile=master-changelog.xml \
+  --searchPath="$PWD/backend/changelogs" \
+  --classpath="/opt/liquibase/lib/mysql.jar" \
+  update
+```
+
+On another machine: `docker load -i prism-liquibase-build.tar`, mount the repo, and use the same commands with the correct JDBC URL.
+
+If `update` prints `Waiting for changelog lock...`, stop other Liquibase processes, then run `releaseLocks` with the same flags, or clear a stale lock only when no migration is running.
+
+For MySQL on the Windows host from inside a container, use `host.docker.internal` instead of `127.0.0.1` in the JDBC URL.
+
+## CI/CD on Railway
+
+Workflow file: `.github/workflows/liquibase-pipeline.yml`
+
+| Trigger | Behavior |
+|---------|----------|
+| Push to `main` | Deploy DEV, then QA (approval), then PROD (approval) |
+| `workflow_dispatch` | Rollback on chosen environment (`rollback-count`) |
+
+Each deploy job checks out the repo, installs Java 17 and Liquibase, validates changelogs, and runs `update` against the environment secret URL.
+
+CI does not use your local `prism-liquibase-build.tar`. The runner installs tools on each job.
+
+## Using the dashboard
+
+1. Open http://localhost:3000
+2. Review DEV, QA, and PROD cards for connectivity and latest migration
+3. Select an environment to see pending migrations and history
+4. Use **Run** on a pending item to execute via Liquibase (confirm in the dialog)
+5. Inspect stdout and stderr in the result modal
+
+Pending migrations are derived from `master-changelog.json` compared to `DATABASECHANGELOG`.
+
+## Troubleshooting
+
+### Docker Compose `build` appears stuck after “load local bake definitions”
+
+Docker Desktop on Windows can hang on Buildx Bake. Use `.\scripts\build-dashboard-docker.ps1` instead of `docker compose build`, then `docker compose up -d` or `.\scripts\start-dashboard-docker.ps1`.
+
+### `docker compose up` or `docker run` hangs with no output
+
+Restart Docker Desktop. Confirm the engine with `docker run --rm hello-world`, then start the dashboard again.
+
+### Liquibase `NumberFormatException: For input string: "PORT"`
+
+The JDBC URL still contains placeholders. Copy the full value from `backend/.env`, not a template like `HOST:PORT`.
+
+### `Waiting for changelog lock...`
+
+Another migration is running, or a previous run left a lock. Stop other Liquibase clients, run `releaseLocks`, then retry `update`.
+
+### Duplicate MySQL JAR warnings in the migration container
+
+Usually harmless when `mysql.jar` is on the classpath and under `/opt/liquibase/lib`.
+
+### Backend cannot find Liquibase on Windows
+
+Install Liquibase locally or use the Docker backend (`LIQUIBASE_PATH` is set in the container). Verify with `liquibase --version` or the path in `backend/.env`.
+
+### Database connection errors from the API
+
+Check JDBC URLs in `backend/.env`, Railway service status, and firewall rules. Test with `GET http://localhost:4000/api/database/status`.
+
+### Port already in use
+
+```powershell
+netstat -ano | findstr ":4000 :3000"
+```
+
+Stop conflicting processes before starting Docker or `npm start`.
+
+## API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Backend health check |
+| GET | `/api/environments` | Latest migration per environment |
+| GET | `/api/database/status` | Connection status for DEV, QA, PROD |
+| GET | `/api/migrations/history?env=dev` | Applied changesets |
+| GET | `/api/migrations/pending?env=dev` | Pending changesets |
+| POST | `/api/migrations/execute` | Run a migration (`env`, `changelogFile`) |
+| POST | `/api/migrations/rollback` | Rollback to a tag |
+| POST | `/api/migrations/rollback-one` | Roll back one changeset |
+| GET | `/api/migrations/diff?source=dev&target=qa` | Schema diff |
+| GET | `/api/migrations/rollback-history` | Rollback audit history |
+| GET | `/api/migrations/recent-deployments` | Recent deployment activity |
+| GET | `/api/migrations/version-map` | Version map across environments |
+| GET | `/api/migrations/metrics` | Migration metrics |
+| GET | `/api/approvers` | Configured QA/PROD approvers |
+
 ## License
 
-This project is part of Phase 6 of the PRISM monitoring dashboard.
-
+Part of the PRISM monitoring dashboard workstream.

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="014-ci-pipeline-test" author="lalu">
+        <comment>Marker row to verify DEV, QA, and PROD GitHub Actions deploys</comment>
+
+        <insert tableName="app_settings">
+            <column name="setting_key" value="ci_pipeline_test"/>
+            <column name="setting_value" value="github-actions-promotion"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="app_settings">
+                <where>setting_key = 'ci_pipeline_test'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

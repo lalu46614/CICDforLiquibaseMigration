@@ -65,6 +65,12 @@
       "author": "lalu",
       "filename": "changelogs/013-create-employee.xml",
       "description": "create employee table"
+    },
+    {
+      "id": "014-ci-pipeline-test",
+      "author": "lalu",
+      "filename": "changelogs/014-ci-pipeline-test.xml",
+      "description": "insert CI pipeline promotion test marker in app_settings"
     }
 
   ]

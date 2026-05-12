@@ -1,0 +1,17 @@
+services:
+  backend:
+    image: cicdforliquibasemigration-backend:latest
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./backend/.env
+    environment:
+      LIQUIBASE_PATH: /opt/liquibase/liquibase
+      PORT: "4000"
+
+  frontend:
+    image: cicdforliquibasemigration-frontend:latest
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
