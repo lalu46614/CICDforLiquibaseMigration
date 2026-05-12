@@ -21,6 +21,7 @@
     <include file="012-create-student.xml"/>
     <include file="013-create-employee.xml"/>
     <include file="014-ci-pipeline-test.xml"/>
+    <include file="015-multi-env-promotion-test.xml"/>
 
 
 </databaseChangeLog>

@@ -71,6 +71,12 @@
       "author": "lalu",
       "filename": "changelogs/014-ci-pipeline-test.xml",
       "description": "insert CI pipeline promotion test marker in app_settings"
+    },
+    {
+      "id": "015-multi-env-promotion-test",
+      "author": "lalu",
+      "filename": "changelogs/015-multi-env-promotion-test.xml",
+      "description": "insert second CI promotion test marker in app_settings"
     }
 
   ]
