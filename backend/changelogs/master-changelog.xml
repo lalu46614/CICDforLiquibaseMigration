@@ -5,25 +5,13 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
 
-    <!-- 
-    Master changelog that includes all changesets.
-    Paths in <include> are relative to this file's location.
-    -->
     <include file="001-create-users.xml"/>
-    <include file="002-add-email.xml"/>
-    <include file="003-add-phone.xml"/>
-    <include file="004-add-address.xml"/>
-    <include file="005-create-rollback-history.xml"/>
-    <include file="008-insert-seed-data.xml"/>
-    <include file="009-create-settings.xml"/>
-    <include file="010-add-status-to-app-settings.xml"/>
-    <include file="011-insert-into-app-settings.xml"/>
-    <include file="012-create-student.xml"/>
-    <include file="013-create-employee.xml"/>
-    <include file="014-ci-pipeline-test.xml"/>
-    <include file="015-multi-env-promotion-test.xml"/>
-    <include file="016-promotion-smoke-test.xml"/>
-
+    <include file="002-create-product.xml"/>
+    <include file="003-create-order.xml"/>
+    <include file="004-create-category.xml"/>
+    <include file="005-add-email.xml"/>
+    <include file="006-add-price.xml"/>
+    <include file="007-add-quantity.xml"/>
+    <include file="008-add-description.xml"/>
 
 </databaseChangeLog>
-

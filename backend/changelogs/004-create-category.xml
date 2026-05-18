@@ -3,8 +3,8 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
-    <changeSet id="001-create-users" author="prada">
-        <createTable tableName="users">
+    <changeSet id="004-create-category" author="prada">
+        <createTable tableName="category">
             <column name="id" type="int" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
@@ -13,7 +13,7 @@
             </column>
         </createTable>
         <rollback>
-            <dropTable tableName="users"/>
+            <dropTable tableName="category"/>
         </rollback>
     </changeSet>
 </databaseChangeLog>
