@@ -47,6 +47,12 @@
       "author": "prada",
       "filename": "changelogs/008-add-description.xml",
       "description": "add description column to category table"
+    },
+    {
+      "id": "009-alter-users",
+      "author": "meganathan",
+      "filename": "changelogs/009-alter-users.xml",
+      "description": "widen users.email column to varchar(200)"
     }
   ]
 }
