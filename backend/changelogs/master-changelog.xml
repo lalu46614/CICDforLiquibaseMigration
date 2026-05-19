@@ -14,5 +14,6 @@
     <include file="007-add-quantity.xml"/>
     <include file="008-add-description.xml"/>
     <include file="009-alter-users.xml"/>
+    <include file="010-add-status.xml"/>
 
 </databaseChangeLog>
