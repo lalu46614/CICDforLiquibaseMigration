@@ -13,5 +13,6 @@
     <include file="006-add-price.xml"/>
     <include file="007-add-quantity.xml"/>
     <include file="008-add-description.xml"/>
+    <include file="009-alter-users.xml"/>
 
 </databaseChangeLog>
