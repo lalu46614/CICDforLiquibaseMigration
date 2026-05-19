@@ -53,6 +53,18 @@
       "author": "meganathan",
       "filename": "changelogs/009-alter-users.xml",
       "description": "widen users.email column to varchar(200)"
+    },
+    {
+      "id": "010-add-status",
+      "author": "meganathan",
+      "filename": "changelogs/010-add-status.xml",
+      "description": "add status column to users table"
+    },
+    {
+      "id": "011-add-phone",
+      "author": "meganathan",
+      "filename": "changelogs/011-add-phone.xml",
+      "description": "add phone column to users table"
     }
   ]
 }
