@@ -1,13 +1,29 @@
 services:
+  mysql:
+    image: mysql:8
+    container_name: todo-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: railway_dev
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+
   backend:
     image: cicdforliquibasemigration-backend:latest
     ports:
       - "4000:4000"
-    env_file:
-      - ./backend/.env
     environment:
       LIQUIBASE_PATH: /opt/liquibase/liquibase
       PORT: "4000"
+      DEV_DATABASE_URL: jdbc:mysql://mysql:3306/railway_dev?user=root&password=admin
+      QA_DATABASE_URL: jdbc:mysql://mysql:3306/railway_qa?user=root&password=admin
+      PROD_DATABASE_URL: jdbc:mysql://mysql:3306/railway_prod?user=root&password=admin
+    depends_on:
+      - mysql
 
   frontend:
     image: cicdforliquibasemigration-frontend:latest
@@ -15,3 +31,6 @@ services:
       - "3000:80"
     depends_on:
       - backend
+
+volumes:
+  mysql-data:

@@ -199,7 +199,7 @@ exports.executeMigration = async (req, res) => {
   if (!changelogFile)
     return res.status(400).json({ error: 'changelogFile required' });
 
-  const liquibasePath = process.env.LIQUIBASE_PATH || 'C:/Program Files/liquibase/liquibase.bat';
+  const liquibasePath = process.env.LIQUIBASE_PATH || '/opt/liquibase/liquibase';
   const dbUrl = process.env[`${env.toUpperCase()}_DATABASE_URL`];
   if (!dbUrl)
     return res.status(400).json({ error: 'db url not configured for env' });
@@ -315,7 +315,7 @@ exports.rollbackOne = async (req, res) => {
     return res.status(400).json({ error: 'changesetId, author, and filename are required' });
   }
 
-  const liquibasePath = process.env.LIQUIBASE_PATH || 'C:/Program Files/liquibase/liquibase.bat';
+  const liquibasePath = process.env.LIQUIBASE_PATH || '/opt/liquibase/liquibase';
   const dbUrl = process.env[`${env.toUpperCase()}_DATABASE_URL`];
   if (!dbUrl)
     return res.status(400).json({ error: 'db url not configured for env' });
@@ -486,7 +486,7 @@ exports.rollbackMigration = async (req, res) => {
   const { env = 'dev', tag } = req.body;
   if (!tag) return res.status(400).json({ error: 'tag required for rollback' });
 
-  const liquibasePath = process.env.LIQUIBASE_PATH || 'C:/Program Files/liquibase/liquibase.bat';
+  const liquibasePath = process.env.LIQUIBASE_PATH || '/opt/liquibase/liquibase';
   const dbUrl = process.env[`${env.toUpperCase()}_DATABASE_URL`];
   if (!dbUrl)
     return res.status(400).json({ error: 'db url not configured for env' });
@@ -869,7 +869,7 @@ exports.getMetrics = async (req, res) => {
 exports.getSchemaDiff = async (req, res) => {
   const { source = 'dev', target = 'qa' } = req.query;
 
-  const liquibasePath = process.env.LIQUIBASE_PATH || 'C:/Program Files/liquibase/liquibase.bat';
+  const liquibasePath = process.env.LIQUIBASE_PATH || '/opt/liquibase/liquibase';
   const srcUrl = process.env[`${source.toUpperCase()}_DATABASE_URL`];
   const tgtUrl = process.env[`${target.toUpperCase()}_DATABASE_URL`];
 
